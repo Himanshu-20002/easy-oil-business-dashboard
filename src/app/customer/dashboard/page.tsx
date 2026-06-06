@@ -74,7 +74,7 @@ function DashboardContent() {
     }
 
     fetchData();
-  }, []);
+  }, [activeTab]);
 
   if (loading) {
     return (

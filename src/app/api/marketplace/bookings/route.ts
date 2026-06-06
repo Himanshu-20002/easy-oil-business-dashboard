@@ -6,6 +6,8 @@ import { Quote } from '../../../../models/Quote';
 import { Booking } from '../../../../models/Booking';
 import { BookingTimeline } from '../../../../models/BookingTimeline';
 import { Fleet } from '../../../../models/Fleet';
+import { Order } from '../../../../models/Order';
+
 
 export async function GET(req: Request) {
   try {
@@ -131,6 +133,14 @@ export async function POST(req: Request) {
       status: 'BOOKED'
     });
 
+    // Link the new Booking to the parent Order
+    const linkedOrder = await Order.findOne({ transportRequestRef: requestId });
+    if (linkedOrder) {
+      linkedOrder.bookingRef = booking._id;
+      linkedOrder.transportStatus = 'TRANSPORT_BOOKED';
+      await linkedOrder.save();
+    }
+
     // Create initial timeline audit log
     await BookingTimeline.create({
       bookingRef: booking._id,
@@ -182,6 +192,22 @@ export async function PUT(req: Request) {
     } else if (status === 'DISPATCHED' || status === 'IN_TRANSIT') {
       await Fleet.findByIdAndUpdate(booking.fleetRef, { status: 'ON_TRIP' });
     }
+
+    // Propagate status progression to linked Order
+    const linkedOrder = await Order.findOne({ bookingRef: bookingId });
+    if (linkedOrder) {
+      if (status === 'DISPATCHED' || status === 'IN_TRANSIT') {
+        linkedOrder.transportStatus = 'IN_TRANSIT';
+        linkedOrder.status = 'in_transit';
+      } else if (status === 'DELIVERED' || status === 'COMPLETED') {
+        linkedOrder.transportStatus = 'DELIVERED';
+        linkedOrder.status = 'delivered';
+      } else {
+        linkedOrder.transportStatus = 'TRANSPORT_BOOKED';
+      }
+      await linkedOrder.save();
+    }
+
 
     return NextResponse.json({ success: true, booking });
   } catch (error: any) {

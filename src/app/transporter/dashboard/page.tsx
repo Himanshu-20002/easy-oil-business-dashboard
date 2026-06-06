@@ -317,7 +317,7 @@ export default function TransporterDashboard() {
                           <div>
                             <span className="text-[9px] text-slate-400 font-semibold block uppercase tracking-wider">Volume</span>
                             <span className="text-xs font-extrabold text-slate-900 mt-0.5">
-                              {req.quantityKl} KL
+                              {req.quantityKl?.toLocaleString() || req.quantityKl} L
                             </span>
                           </div>
                         </div>
@@ -484,9 +484,10 @@ export default function TransporterDashboard() {
                   ))
                 )}
               </div>
-            )}
-          </div>
-        )}
+            </div>
+          )}
+        </div>
+      )}
       </main>
 
       {/* Bid Modal */}

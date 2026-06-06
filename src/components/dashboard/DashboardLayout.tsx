@@ -13,12 +13,12 @@ export function DashboardLayout({ children, isApproved = true }: DashboardLayout
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
   return (
-    <div className="flex min-h-screen bg-slate-50">
+    <div className="flex h-screen w-screen overflow-hidden bg-slate-50">
       <Suspense fallback={<div className="w-64 bg-slate-900" />}>
         <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} isApproved={isApproved} />
       </Suspense>
-
-      <main className="flex-1 flex flex-col">
+ 
+      <main className="flex-1 flex flex-col h-full overflow-hidden">
         {/* Top bar for mobile */}
         <div className="lg:hidden sticky top-0 z-20 bg-white border-b border-slate-200 p-4 flex items-center justify-between">
           <button
@@ -30,9 +30,9 @@ export function DashboardLayout({ children, isApproved = true }: DashboardLayout
           <div className="font-bold text-slate-900">EasyOil Dashboard</div>
           <div className="w-9" />
         </div>
-
+ 
         {/* Content area */}
-        <div className="flex-1 overflow-auto">
+        <div className="flex-1 overflow-y-auto">
           <div className="p-6 lg:p-8 max-w-7xl mx-auto w-full">
             {children}
           </div>

@@ -11,10 +11,23 @@ const OrderSchema = new Schema(
       enum: ['processing', 'in_transit', 'delivered'], 
       default: 'processing' 
     },
+    transportStatus: {
+      type: String,
+      enum: ['AWAITING_TRANSPORT', 'BIDDING', 'TRANSPORT_BOOKED', 'IN_TRANSIT', 'DELIVERED'],
+      default: 'AWAITING_TRANSPORT',
+      index: true
+    },
+    bookingRef: { type: Schema.Types.ObjectId, ref: 'Booking', default: null, index: true },
+    transportRequestRef: { type: Schema.Types.ObjectId, ref: 'TransportRequest', default: null, index: true },
     deliveryETA: { type: Date, required: true },
     createdAt: { type: Date, default: Date.now }
   },
   { timestamps: true }
 );
 
-export const Order = models.Order || model('Order', OrderSchema);
+if (models.Order) {
+  delete (models as any).Order;
+}
+
+export const Order = model('Order', OrderSchema);
+

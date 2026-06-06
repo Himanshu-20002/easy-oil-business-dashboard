@@ -14,7 +14,7 @@ const BookingSchema = new Schema(
     platformRevenue: { type: Number, required: true },
     status: {
       type: String,
-      enum: ['BOOKED', 'VEHICLE_ASSIGNED', 'DISPATCHED', 'IN_TRANSIT', 'ARRIVED', 'DELIVERED', 'COMPLETED', 'CANCELLED'],
+      enum: ['BOOKED', 'VEHICLE_ASSIGNED', 'LOADING_AT_DEPOT', 'DISPATCHED', 'IN_TRANSIT', 'ARRIVED', 'DELIVERED', 'COMPLETED', 'CANCELLED'],
       default: 'BOOKED',
       index: true
     }
@@ -22,4 +22,9 @@ const BookingSchema = new Schema(
   { timestamps: true }
 );
 
-export const Booking = models.Booking || model('Booking', BookingSchema);
+if (models.Booking) {
+  delete (models as any).Booking;
+}
+
+export const Booking = model('Booking', BookingSchema);
+

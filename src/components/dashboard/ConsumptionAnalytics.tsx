@@ -18,29 +18,34 @@ export function ConsumptionAnalytics({ orders }: ConsumptionAnalyticsProps) {
   const hasOrders = orders && orders.length > 0;
 
   const getConsumptionData = () => {
-    if (!hasOrders) return [];
+    // Generate the last 6 months dynamically in chronological order
+    const dataList: { month: string; usage: number }[] = [];
+    const now = new Date();
+    for (let i = 5; i >= 0; i--) {
+      const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+      const monthName = d.toLocaleDateString('en-US', { month: 'short' });
+      dataList.push({ month: monthName, usage: 0 });
+    }
+
+    if (hasOrders) {
+      orders.forEach(order => {
+        if (!order.createdAt) return;
+        const date = new Date(order.createdAt);
+        const monthName = date.toLocaleDateString('en-US', { month: 'short' });
+        
+        const found = dataList.find(item => item.month === monthName);
+        if (found) {
+          found.usage += Number(order.quantity) || 0;
+        }
+      });
+    }
     
-    // Process real orders dynamically
-    const sortedOrders = [...orders].sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
-    const grouped: Record<string, number> = {};
-    
-    sortedOrders.forEach(order => {
-      if (!order.createdAt) return;
-      const date = new Date(order.createdAt);
-      const monthName = date.toLocaleDateString('en-US', { month: 'short' }); // "Jan", "Feb", etc.
-      
-      if (!grouped[monthName]) {
-        grouped[monthName] = 0;
-      }
-      grouped[monthName] += Number(order.quantity) || 0;
-    });
-    
-    return Object.entries(grouped).map(([month, usage]) => ({ month, usage }));
+    return dataList;
   };
 
   const chartData = getConsumptionData();
-  const currentUsage = chartData.length > 0 ? chartData[chartData.length - 1] : { usage: 0 };
-  const previousUsage = chartData.length > 1 ? chartData[chartData.length - 2] : { usage: 0 };
+  const currentUsage = chartData[chartData.length - 1] || { usage: 0 };
+  const previousUsage = chartData[chartData.length - 2] || { usage: 0 };
   const trend = previousUsage.usage > 0 ? ((currentUsage.usage - previousUsage.usage) / previousUsage.usage) * 100 : 0;
 
   if (!mounted) {
@@ -64,7 +69,7 @@ export function ConsumptionAnalytics({ orders }: ConsumptionAnalyticsProps) {
             Your fuel procurement trends, previous month comparisons, future projections, and smart refill alerts will be computed dynamically once you place your first order.
           </p>
           <a
-            href="/customer/dashboard?tab=buy-fuel"
+             href="/customer/dashboard?tab=buy-fuel"
             className="inline-flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-6 rounded-lg transition-colors text-sm shadow-md"
           >
             Place Fuel Procurement Order
@@ -123,8 +128,8 @@ export function ConsumptionAnalytics({ orders }: ConsumptionAnalyticsProps) {
             <h3 className="text-lg font-bold text-slate-900">Consumption Trend</h3>
           </div>
 
-          <div className="w-full h-80 -mx-6 -mb-6">
-            <ResponsiveContainer width="100%" height="100%">
+          <div className="w-full h-80 pr-4">
+            <ResponsiveContainer width="100%" height={320} minWidth={0}>
               <BarChart data={chartData} margin={{ top: 5, right: 30, left: 0, bottom: 5 }}>
                 <defs>
                   <linearGradient id="colorUsage" x1="0" y1="0" x2="0" y2="1">

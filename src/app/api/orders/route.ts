@@ -3,6 +3,11 @@ import { auth } from '../../../lib/auth';
 import { dbConnect } from '../../../lib/db';
 import { Order } from '../../../models/Order';
 import { Company } from '../../../models/Company';
+import { TransportRequest } from '../../../models/TransportRequest';
+import { Transporter } from '../../../models/Transporter';
+import { Fleet } from '../../../models/Fleet';
+import { Quote } from '../../../models/Quote';
+
 
 export async function GET() {
   try {
@@ -88,13 +93,15 @@ export async function POST(req: Request) {
     await company.save();
 
     // Create order record
+    const etaDate = deliveryETA ? new Date(deliveryETA) : new Date(Date.now() + 3 * 24 * 60 * 60 * 1000);
     const newOrder = await Order.create({
       companyRef: companyId,
       orderId,
       product,
       quantity,
       status: 'processing',
-      deliveryETA: deliveryETA ? new Date(deliveryETA) : new Date(Date.now() + 3 * 24 * 60 * 60 * 1000)
+      transportStatus: 'AWAITING_TRANSPORT',
+      deliveryETA: etaDate
     });
 
     return NextResponse.json({ success: true, order: newOrder, availableCredit: company.availableCredit });

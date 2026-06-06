@@ -3,6 +3,7 @@ import { Schema, model, models } from 'mongoose';
 const TransportRequestSchema = new Schema(
   {
     companyRef: { type: Schema.Types.ObjectId, ref: 'Company', required: true, index: true },
+    orderRef: { type: Schema.Types.ObjectId, ref: 'Order', default: null, index: true },
     pickupLocation: { type: String, required: true },
     deliveryLocation: { type: String, required: true },
     fuelType: { type: String, required: true }, // e.g., 'HSD', 'LDO', 'Bitumen'
@@ -20,4 +21,9 @@ const TransportRequestSchema = new Schema(
   { timestamps: true }
 );
 
-export const TransportRequest = models.TransportRequest || model('TransportRequest', TransportRequestSchema);
+if (models.TransportRequest) {
+  delete (models as any).TransportRequest;
+}
+
+export const TransportRequest = model('TransportRequest', TransportRequestSchema);
+

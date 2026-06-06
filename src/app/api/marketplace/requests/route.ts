@@ -5,8 +5,10 @@ import { TransportRequest } from '../../../../models/TransportRequest';
 import { Transporter } from '../../../../models/Transporter';
 import { Fleet } from '../../../../models/Fleet';
 import { Quote } from '../../../../models/Quote';
+import { Order } from '../../../../models/Order';
 
-export async function GET() {
+
+export async function GET(req: Request) {
   try {
     const session = await auth();
     if (!session || !session.user) {
@@ -16,15 +18,38 @@ export async function GET() {
     await dbConnect();
     const companyId = session.user.companyRef;
 
+    // Read optional orderId query parameter
+    const { searchParams } = new URL(req.url);
+    const orderIdParam = searchParams.get('orderId');
+
     let requests;
-    // Customers only see their own requests. Admins/Officers/Transporters see all.
     if (session.user.role === 'customer') {
       if (!companyId) {
         return NextResponse.json({ success: false, message: 'No associated company profile found' }, { status: 400 });
       }
-      requests = await TransportRequest.find({ companyRef: companyId }).sort({ createdAt: -1 });
+      const filter: any = { companyRef: companyId };
+      if (orderIdParam) {
+        const query = orderIdParam.match(/^[0-9a-fA-F]{24}$/) ? { _id: orderIdParam } : { orderId: orderIdParam };
+        const order = await Order.findOne(query);
+        if (order) {
+          filter.orderRef = order._id;
+        } else {
+          filter.orderRef = orderIdParam;
+        }
+      }
+      requests = await TransportRequest.find(filter).populate('orderRef').sort({ createdAt: -1 });
     } else {
-      requests = await TransportRequest.find().populate('companyRef').sort({ createdAt: -1 });
+      const filter: any = {};
+      if (orderIdParam) {
+        const query = orderIdParam.match(/^[0-9a-fA-F]{24}$/) ? { _id: orderIdParam } : { orderId: orderIdParam };
+        const order = await Order.findOne(query);
+        if (order) {
+          filter.orderRef = order._id;
+        } else {
+          filter.orderRef = orderIdParam;
+        }
+      }
+      requests = await TransportRequest.find(filter).populate('companyRef').populate('orderRef').sort({ createdAt: -1 });
     }
 
     return NextResponse.json({ success: true, requests });
@@ -47,15 +72,28 @@ export async function POST(req: Request) {
       return NextResponse.json({ success: false, message: 'No company profile associated' }, { status: 400 });
     }
 
-    const { pickupLocation, deliveryLocation, fuelType, quantityKl, requiredDate, specialInstructions } = await req.json();
+    const { pickupLocation, deliveryLocation, fuelType, quantityKl, requiredDate, specialInstructions, orderId } = await req.json();
+
+    if (!orderId) {
+      return NextResponse.json({ success: false, message: 'A bidding request must be linked to an active fuel order.' }, { status: 400 });
+    }
 
     if (!pickupLocation || !deliveryLocation || !fuelType || !quantityKl || !requiredDate) {
       return NextResponse.json({ success: false, message: 'Missing required request fields' }, { status: 400 });
     }
 
+    const orderQuery = orderId.match(/^[0-9a-fA-F]{24}$/) ? { _id: orderId } : { orderId: orderId };
+    const order = await Order.findOne({ ...orderQuery, companyRef: companyId });
+    if (!order) {
+      return NextResponse.json({ success: false, message: 'Associated fuel order not found or unauthorized.' }, { status: 400 });
+    }
+
+    const linkedOrderRef = order._id;
+
     // Create the request
     const transportRequest = await TransportRequest.create({
       companyRef: companyId,
+      orderRef: linkedOrderRef,
       pickupLocation,
       deliveryLocation,
       fuelType,
@@ -65,16 +103,30 @@ export async function POST(req: Request) {
       status: 'OPEN_FOR_BIDDING'
     });
 
-    // Seed mock transporters, fleet, and quotes to make the marketplace fully interactive
+    if (linkedOrderRef) {
+      await Order.findByIdAndUpdate(linkedOrderRef, {
+        transportRequestRef: transportRequest._id,
+        transportStatus: 'BIDDING',
+        deliveryETA: new Date(requiredDate)
+      });
+    }
+
+    // Batch query existing Transporters and Fleets to minimize database roundtrips
     const mockTransporterData = [
       { name: 'FuelExpress Logistics', rating: 4.8, completed: 150, baseRate: 12000, license: 'DL-1AA-1234' },
       { name: 'TransportHub Pro', rating: 4.6, completed: 200, baseRate: 12500, license: 'MH-02B-5678' },
       { name: 'Regional Haulers', rating: 4.5, completed: 85, baseRate: 11500, license: 'HR-55C-9012' }
     ];
+    const tNames = mockTransporterData.map(t => t.name);
+    const existingTransporters = await Transporter.find({ companyName: { $in: tNames } });
+    const transporterMap = new Map(existingTransporters.map(t => [t.companyName, t]));
+
+    const existingTransporterIds = existingTransporters.map(t => t._id);
+    const existingFleets = await Fleet.find({ transporterRef: { $in: existingTransporterIds } });
+    const fleetMap = new Map(existingFleets.map(f => [f.transporterRef.toString(), f]));
 
     for (const tData of mockTransporterData) {
-      // Find or create Transporter
-      let transporter = await Transporter.findOne({ companyName: tData.name });
+      let transporter = transporterMap.get(tData.name);
       if (!transporter) {
         transporter = await Transporter.create({
           companyName: tData.name,
@@ -83,15 +135,17 @@ export async function POST(req: Request) {
           email: `${tData.name.toLowerCase().replace(' ', '')}@easyoil-logistics.com`,
           gstNumber: `27AAAAA${Math.floor(1000 + Math.random() * 9000)}A1Z${Math.floor(1 + Math.random() * 9)}`,
           address: 'Logistics Park, Phase 1',
+          serviceArea: 'Delhi NCR',
+          vehicleCapacity: 20,
           serviceRegions: ['Mumbai', 'Delhi', 'Noida', 'Gurugram'],
           verificationStatus: 'VERIFIED',
           rating: tData.rating,
           completedDeliveries: tData.completed
         });
+        transporterMap.set(tData.name, transporter);
       }
 
-      // Find or create Fleet Vehicle
-      let vehicle = await Fleet.findOne({ transporterRef: transporter._id });
+      let vehicle = fleetMap.get(transporter._id.toString());
       if (!vehicle) {
         vehicle = await Fleet.create({
           transporterRef: transporter._id,
@@ -104,9 +158,9 @@ export async function POST(req: Request) {
           gpsEnabled: true,
           status: 'ACTIVE'
         });
+        fleetMap.set(transporter._id.toString(), vehicle);
       }
 
-      // Create Quote/Bid for this request
       const priceVariation = Math.floor((Math.random() - 0.5) * 2000);
       await Quote.create({
         requestRef: transportRequest._id,

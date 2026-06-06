@@ -22,7 +22,12 @@ export async function GET() {
       );
     }
 
-    const alerts = await Alert.find({ companyRef: companyId, dismissed: false }).sort({ createdAt: -1 });
+    const alerts = await Alert.find({
+      $or: [
+        { companyRef: companyId, dismissed: false },
+        { isGlobal: true, dismissedBy: { $ne: companyId } }
+      ]
+    }).sort({ createdAt: -1 });
     return NextResponse.json({ success: true, alerts });
   } catch (error: any) {
     console.error('Fetch alerts error:', error);
@@ -60,10 +65,19 @@ export async function POST(req: Request) {
       );
     }
 
-    await Alert.findOneAndUpdate(
-      { _id: alertId, companyRef: companyId },
-      { dismissed: true }
-    );
+    const alert = await Alert.findById(alertId);
+    if (!alert) {
+      return NextResponse.json({ success: false, message: 'Alert not found' }, { status: 404 });
+    }
+
+    if (alert.isGlobal) {
+      await Alert.findByIdAndUpdate(alertId, {
+        $addToSet: { dismissedBy: companyId }
+      });
+    } else {
+      alert.dismissed = true;
+      await alert.save();
+    }
 
     return NextResponse.json({ success: true });
   } catch (error: any) {

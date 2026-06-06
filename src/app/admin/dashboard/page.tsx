@@ -12,12 +12,21 @@ import {
 } from 'lucide-react';
 
 export default function AdminDashboard() {
-  const [activeTab, setActiveTab] = useState<'customers' | 'transporters'>('customers');
+  const [activeTab, setActiveTab] = useState<'customers' | 'transporters' | 'notifications'>('customers');
   const [loading, setLoading] = useState(true);
   const [data, setData] = useState<any>(null);
   const [transporters, setTransporters] = useState<any[]>([]);
   const [seeding, setSeeding] = useState(false);
   const [actionLoading, setActionLoading] = useState<string | null>(null);
+
+  // Broadcast Center states
+  const [companies, setCompanies] = useState<any[]>([]);
+  const [sentAlerts, setSentAlerts] = useState<any[]>([]);
+  const [msgText, setMsgText] = useState('');
+  const [alertPriority, setAlertPriority] = useState('info');
+  const [isGlobalAlert, setIsGlobalAlert] = useState(true);
+  const [targetCompany, setTargetCompany] = useState('');
+  const [sendingAlert, setSendingAlert] = useState(false);
 
   const fetchAdminData = async () => {
     try {
@@ -42,15 +51,78 @@ export default function AdminDashboard() {
     }
   };
 
+  const fetchAlertsData = async () => {
+    try {
+      const res = await fetch('/api/admin/alerts');
+      const json = await res.json();
+      if (res.ok && json.success) {
+        setCompanies(json.companies || []);
+        setSentAlerts(json.alerts || []);
+        if (json.companies && json.companies.length > 0 && !targetCompany) {
+          setTargetCompany(json.companies[0]._id);
+        }
+      }
+    } catch (err) {
+      console.error('Error fetching alerts:', err);
+    }
+  };
+
   const loadAll = async () => {
     setLoading(true);
-    await Promise.all([fetchAdminData(), fetchTransporters()]);
+    await Promise.all([fetchAdminData(), fetchTransporters(), fetchAlertsData()]);
     setLoading(false);
   };
 
   useEffect(() => {
     loadAll();
   }, []);
+
+  const handleSubmitAlert = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!msgText.trim()) return;
+    setSendingAlert(true);
+    try {
+      const res = await fetch('/api/admin/alerts', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          message: msgText,
+          priority: alertPriority,
+          isGlobal: isGlobalAlert,
+          companyRef: isGlobalAlert ? undefined : targetCompany
+        })
+      });
+      const json = await res.json();
+      if (res.ok && json.success) {
+        alert('Notification broadcasted successfully!');
+        setMsgText('');
+        await fetchAlertsData();
+      } else {
+        alert(json.message || 'Failed to send notification');
+      }
+    } catch (err: any) {
+      alert('Error sending alert: ' + err.message);
+    } finally {
+      setSendingAlert(false);
+    }
+  };
+
+  const handleDeleteAlert = async (alertId: string) => {
+    if (!confirm('Are you sure you want to delete this alert?')) return;
+    try {
+      const res = await fetch(`/api/admin/alerts?alertId=${alertId}`, {
+        method: 'DELETE'
+      });
+      const json = await res.json();
+      if (res.ok && json.success) {
+        await fetchAlertsData();
+      } else {
+        alert(json.message || 'Failed to delete alert');
+      }
+    } catch (err: any) {
+      alert('Error deleting alert: ' + err.message);
+    }
+  };
 
   const triggerSeed = async () => {
     setSeeding(true);
@@ -220,9 +292,15 @@ export default function AdminDashboard() {
           >
             Transporter Approvals
           </button>
+          <button
+            onClick={() => setActiveTab('notifications')}
+            className={`pb-4 px-2 font-bold text-sm tracking-wider uppercase transition-all border-b-2 ${activeTab === 'notifications' ? 'border-iocl-blue text-iocl-blue' : 'border-transparent text-slate-400 hover:text-slate-600'}`}
+          >
+            Broadcast Center
+          </button>
         </div>
 
-        {activeTab === 'customers' ? (
+        {activeTab === 'customers' && (
           <>
             {/* Charts & Interactive Reporting Hub */}
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 mb-8">
@@ -316,7 +394,9 @@ export default function AdminDashboard() {
               </table>
             </div>
           </>
-        ) : (
+        )}
+
+        {activeTab === 'transporters' && (
           <div className="bg-white border border-slate-200 rounded-3xl p-6 shadow-sm overflow-x-auto">
             <h3 className="text-base font-extrabold text-slate-800 mb-4 uppercase tracking-wider">Transporter Registry Approvals</h3>
             
@@ -384,6 +464,148 @@ export default function AdminDashboard() {
                 )}
               </tbody>
             </table>
+          </div>
+        )}
+
+        {activeTab === 'notifications' && (
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+            {/* Create notification form */}
+            <div className="lg:col-span-1 bg-white border border-slate-200 rounded-3xl p-6 shadow-sm">
+              <h3 className="text-base font-extrabold text-slate-800 uppercase tracking-wider mb-4 border-b border-slate-100 pb-3">Create Notification</h3>
+              <form onSubmit={handleSubmitAlert} className="space-y-4">
+                <div>
+                  <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Message Alert Content</label>
+                  <textarea
+                    value={msgText}
+                    onChange={(e) => setMsgText(e.target.value)}
+                    required
+                    className="w-full bg-slate-50 border border-slate-200 rounded-xl p-3 text-slate-900 text-sm font-semibold outline-none focus:border-blue-500 focus:bg-white transition-all h-28"
+                    placeholder="Enter notification details (e.g. Fuel price hike updates)..."
+                  />
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Priority Level</label>
+                    <select
+                      value={alertPriority}
+                      onChange={(e) => setAlertPriority(e.target.value)}
+                      className="w-full bg-slate-50 border border-slate-200 rounded-xl p-3 text-slate-900 text-sm font-semibold outline-none focus:border-blue-500 focus:bg-white transition-all"
+                    >
+                      <option value="info">Info (Blue)</option>
+                      <option value="warning">Warning (Orange)</option>
+                      <option value="success">Success (Green)</option>
+                      <option value="error">Error (Red)</option>
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Scope Target</label>
+                    <select
+                      value={isGlobalAlert ? 'global' : 'targeted'}
+                      onChange={(e) => setIsGlobalAlert(e.target.value === 'global')}
+                      className="w-full bg-slate-50 border border-slate-200 rounded-xl p-3 text-slate-900 text-sm font-semibold outline-none focus:border-blue-500 focus:bg-white transition-all"
+                    >
+                      <option value="global">Broadcast to All</option>
+                      <option value="targeted">Specific Partner</option>
+                    </select>
+                  </div>
+                </div>
+
+                {!isGlobalAlert && (
+                  <div>
+                    <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Target Corporate Partner</label>
+                    <select
+                      value={targetCompany}
+                      onChange={(e) => setTargetCompany(e.target.value)}
+                      className="w-full bg-slate-50 border border-slate-200 rounded-xl p-3 text-slate-900 text-sm font-semibold outline-none focus:border-blue-500 focus:bg-white transition-all"
+                    >
+                      {companies.map((c) => (
+                        <option key={c._id} value={c._id}>
+                          {c.companyName} ({c.gst})
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                )}
+
+                <button
+                  type="submit"
+                  disabled={sendingAlert || !msgText.trim()}
+                  className="w-full bg-blue-650 hover:bg-blue-750 disabled:bg-slate-200 text-white font-bold py-3.5 rounded-xl transition-colors text-xs uppercase tracking-wider shadow-sm cursor-pointer"
+                >
+                  {sendingAlert ? 'Broadcasting...' : 'Broadcast Notification'}
+                </button>
+              </form>
+            </div>
+
+            {/* Notifications History log */}
+            <div className="lg:col-span-2 bg-white border border-slate-200 rounded-3xl p-6 shadow-sm overflow-x-auto">
+              <h3 className="text-base font-extrabold text-slate-800 uppercase tracking-wider mb-4 border-b border-slate-100 pb-3">Notification Registry & Logs</h3>
+              <table className="w-full text-left border-collapse text-xs font-semibold text-slate-700">
+                <thead>
+                  <tr className="border-b border-slate-100 text-slate-400 uppercase tracking-widest text-[9px]">
+                    <th className="py-3 px-2">Timestamp</th>
+                    <th className="py-3 px-2">Scope/Target</th>
+                    <th className="py-3 px-2">Priority</th>
+                    <th className="py-3 px-2">Message</th>
+                    <th className="py-3 px-2 text-right">Action</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {sentAlerts.length === 0 ? (
+                    <tr>
+                      <td colSpan={5} className="text-center py-8 text-slate-400 italic">No alerts dispatched yet.</td>
+                    </tr>
+                  ) : (
+                    sentAlerts.map((alert) => (
+                      <tr key={alert._id} className="border-b border-slate-50 hover:bg-slate-50 transition-colors">
+                        <td className="py-3 px-2 text-slate-400 whitespace-nowrap">
+                          {new Date(alert.createdAt || alert.timestamp).toLocaleString('en-IN', {
+                            month: 'short',
+                            day: 'numeric',
+                            hour: '2-digit',
+                            minute: '2-digit'
+                          })}
+                        </td>
+                        <td className="py-3 px-2">
+                          {alert.isGlobal ? (
+                            <span className="px-2 py-0.5 rounded-full text-[9px] font-bold bg-indigo-50 border border-indigo-100 text-indigo-700">
+                              BROADCAST
+                            </span>
+                          ) : (
+                            <span className="font-bold text-slate-900">
+                              {alert.companyRef?.companyName || 'Unknown Partner'}
+                            </span>
+                          )}
+                        </td>
+                        <td className="py-3 px-2">
+                          <span className={`px-2 py-0.5 rounded-full text-[9px] font-bold border capitalize ${
+                            alert.priority === 'error' ? 'bg-red-50 text-red-700 border-red-100' :
+                            alert.priority === 'warning' ? 'bg-amber-50 text-amber-700 border-amber-100' :
+                            alert.priority === 'success' ? 'bg-green-50 text-green-700 border-green-100' :
+                            'bg-blue-50 text-blue-700 border-blue-100'
+                          }`}>
+                            {alert.priority}
+                          </span>
+                        </td>
+                        <td className="py-3 px-2 text-slate-600 max-w-xs truncate" title={alert.message}>
+                          {alert.message}
+                        </td>
+                        <td className="py-3 px-2 text-right">
+                          <button
+                            onClick={() => handleDeleteAlert(alert._id)}
+                            className="text-[10px] font-bold text-red-600 hover:text-red-700 bg-red-50 border border-red-100 px-2.5 py-1 rounded-lg transition-all"
+                          >
+                            Delete
+                          </button>
+                        </td>
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+              </table>
+            </div>
           </div>
         )}
       </main>

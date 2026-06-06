@@ -45,7 +45,7 @@ const navItems: NavItem[] = [
     icon: <ShoppingCart className="w-5 h-5" />
   },
   {
-    label: 'Transport Marketplace',
+    label: 'Transporter Marketplace',
     href: '/customer/dashboard?tab=transporters',
     icon: <Truck className="w-5 h-5" />
   },
@@ -93,7 +93,7 @@ export function Sidebar({ isOpen = true, onClose, isApproved = true }: SidebarPr
   const isActive = (href: string) => {
     const urlObj = new URL(href, 'http://localhost');
     const targetTab = urlObj.searchParams.get('tab');
-    
+
     if (targetTab) {
       return activeTab === targetTab && pathname.includes('/customer/dashboard');
     }
@@ -119,15 +119,14 @@ export function Sidebar({ isOpen = true, onClose, isApproved = true }: SidebarPr
 
       {/* Sidebar */}
       <aside
-        className={`fixed left-0 top-0 h-screen w-64 bg-slate-900 text-white transform transition-transform duration-200 z-40 lg:relative lg:translate-x-0 overflow-y-auto ${
-          isOpen ? 'translate-x-0' : '-translate-x-full'
-        }`}
+        className={`fixed left-0 top-0 h-screen w-64 bg-slate-900 text-white transform transition-transform duration-200 z-40 lg:relative lg:translate-x-0 overflow-y-auto ${isOpen ? 'translate-x-0' : '-translate-x-full'
+          }`}
       >
         {/* Header with close button for mobile */}
         <div className="p-6 flex items-center justify-between border-b border-slate-700">
           <div className="flex items-center gap-2">
-            <div className="w-8 h-8 bg-blue-500 rounded-lg flex items-center justify-center font-bold text-white">
-              EO
+            <div className="w-8 h-8 rounded-lg bg-orange-500 flex items-center justify-center text-white shadow-lg shadow-orange-500/20">
+              <Fuel className="w-5 h-5" />
             </div>
             <span className="font-bold text-lg">EasyOil</span>
           </div>
@@ -148,11 +147,10 @@ export function Sidebar({ isOpen = true, onClose, isApproved = true }: SidebarPr
                 key={item.label}
                 href={item.href}
                 onClick={() => onClose?.()}
-                className={`flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${
-                  isActive(item.href)
-                    ? 'bg-blue-500 text-white'
-                    : 'text-slate-300 hover:bg-slate-800 hover:text-white'
-                } ${restricted ? 'opacity-60 hover:bg-transparent' : ''}`}
+                className={`flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${isActive(item.href)
+                  ? 'bg-blue-500 text-white'
+                  : 'text-slate-300 hover:bg-slate-800 hover:text-white'
+                  } ${restricted ? 'opacity-60 hover:bg-transparent' : ''}`}
               >
                 {item.icon}
                 <span className="font-medium">{item.label}</span>
@@ -173,7 +171,7 @@ export function Sidebar({ isOpen = true, onClose, isApproved = true }: SidebarPr
         <div className="mx-4 border-t border-slate-700" />
 
         {/* Bottom items */}
-        <nav className="p-4 space-y-2">
+        <nav className="p-4 space-y-2 pb-32">
           {bottomItems.map((item) => (
             <Link
               key={item.label}

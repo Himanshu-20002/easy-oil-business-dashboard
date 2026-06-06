@@ -10,6 +10,8 @@ import { Fleet } from '../models/Fleet';
 import { Quote } from '../models/Quote';
 import { Booking } from '../models/Booking';
 import { BookingTimeline } from '../models/BookingTimeline';
+import { TransportRequest } from '../models/TransportRequest';
+import { Alert } from '../models/Alert';
 
 export async function seedDatabase() {
   await dbConnect();
@@ -25,7 +27,9 @@ export async function seedDatabase() {
     Fleet.deleteMany({}),
     Quote.deleteMany({}),
     Booking.deleteMany({}),
-    BookingTimeline.deleteMany({})
+    BookingTimeline.deleteMany({}),
+    TransportRequest.deleteMany({}),
+    Alert.deleteMany({})
   ]);
 
   // 2. Hash default password
@@ -87,6 +91,7 @@ export async function seedDatabase() {
     ownerName: 'Raj Kumar',
     mobile: '9876543210',
     email: 'transporter@easyoil.in',
+    gstNumber: '27AAAAA1234A1Z1',
     serviceArea: 'Delhi NCR',
     vehicleCapacity: 10,
     status: 'ACTIVE',
@@ -125,6 +130,7 @@ export async function seedDatabase() {
     ownerName: 'Vikram Singh',
     mobile: '9876543215',
     email: 'pending_transporter@easyoil.in',
+    gstNumber: '27BBBBB5678B1Z2',
     serviceArea: 'Mumbai',
     vehicleCapacity: 15,
     status: 'PENDING_APPROVAL',
@@ -523,6 +529,40 @@ export async function seedDatabase() {
       actorName: officer1.name,
       actorRole: officer1.role,
       metadata: { applicationId: 'IOCL-2026-10001' }
+    }
+  ]);
+
+  // 6. Seed mock Alerts
+  await Alert.create([
+    {
+      isGlobal: true,
+      type: 'broadcast',
+      message: 'Diesel prices are projected to rise by 2.4% starting midnight. Plan your procurements accordingly.',
+      priority: 'warning',
+      timestamp: new Date()
+    },
+    {
+      isGlobal: true,
+      type: 'broadcast',
+      message: 'Logistics update: Dynamic route optimization is now active for all Delhi/NCR dispatch terminals.',
+      priority: 'info',
+      timestamp: new Date()
+    },
+    {
+      companyRef: companyA._id,
+      isGlobal: false,
+      type: 'invoice_alert',
+      message: 'GST Invoice clearance for transaction #489 is due tomorrow.',
+      priority: 'warning',
+      timestamp: new Date()
+    },
+    {
+      companyRef: companyA._id,
+      isGlobal: false,
+      type: 'credit_alert',
+      message: 'Company credit rating verified successfully by IOCL Chief Administrator.',
+      priority: 'success',
+      timestamp: new Date()
     }
   ]);
 

@@ -1,8 +1,10 @@
 import React, { useState } from 'react';
+import Link from 'next/link';
 import { Card } from './Card';
 import { Badge } from './Badge';
 import { mockDashboardData } from '@/lib/dashboard-mock-data';
-import { Download, Truck, Search, X, Check, ArrowRight, Loader2 } from 'lucide-react';
+import { Download, Truck, Search, X, Check, ArrowRight, Loader2, Navigation } from 'lucide-react';
+
 
 interface ActiveOrdersProps {
   orders?: any[];
@@ -10,7 +12,7 @@ interface ActiveOrdersProps {
 }
 
 export function ActiveOrders({ orders: propOrders, setOrders }: ActiveOrdersProps) {
-  const displayOrders = propOrders 
+  const displayOrders = propOrders || [];
   
   // Search & Filter State
   const [searchTerm, setSearchTerm] = useState('');
@@ -49,6 +51,26 @@ export function ActiveOrders({ orders: propOrders, setOrders }: ActiveOrdersProp
     }
   };
 
+  const getTransportStatusBadgeVariant = (status: string): 'info' | 'warning' | 'success' | 'default' => {
+    switch (status) {
+      case 'BIDDING':
+        return 'warning';
+      case 'TRANSPORT_BOOKED':
+        return 'info';
+      case 'IN_TRANSIT':
+        return 'warning';
+      case 'DELIVERED':
+        return 'success';
+      default:
+        return 'default';
+    }
+  };
+
+  const getTransportStatusLabel = (status: string) => {
+    if (!status) return 'Awaiting Transport';
+    return status.replace(/_/g, ' ');
+  };
+
   const handleDownloadInvoice = (orderId: string) => {
     setDownloadingInvoiceId(orderId);
     setTimeout(() => {
@@ -73,16 +95,6 @@ export function ActiveOrders({ orders: propOrders, setOrders }: ActiveOrdersProp
       
     return matchesSearch && matchesStatus;
   });
-
-  const getTrackingSteps = (status: string) => {
-    const steps = [
-      { key: 'placed', label: 'Order Placed', desc: 'Order accepted & credit verified', done: true },
-      { key: 'processing', label: 'Fuel Loading', desc: 'Loading at refinery terminal', done: status !== 'placed' },
-      { key: 'in_transit', label: 'In Transit', desc: 'GPS tracking dispatch active', done: status === 'in_transit' || status === 'delivered' },
-      { key: 'delivered', label: 'Delivered', desc: 'Unloading complete & signed off', done: status === 'delivered' }
-    ];
-    return steps;
-  };
 
   return (
     <div id="orders" className="mb-8">
@@ -143,7 +155,8 @@ export function ActiveOrders({ orders: propOrders, setOrders }: ActiveOrdersProp
                   <th className="text-left py-3 px-4 font-semibold text-slate-600">Order ID</th>
                   <th className="text-left py-3 px-4 font-semibold text-slate-600">Product</th>
                   <th className="text-left py-3 px-4 font-semibold text-slate-600">Quantity</th>
-                  <th className="text-left py-3 px-4 font-semibold text-slate-600">Status</th>
+                  <th className="text-left py-3 px-4 font-semibold text-slate-600">Order Status</th>
+                  <th className="text-left py-3 px-4 font-semibold text-slate-600">Transport Status</th>
                   <th className="text-left py-3 px-4 font-semibold text-slate-600">Delivery ETA</th>
                   <th className="text-right py-3 px-4 font-semibold text-slate-600">Actions</th>
                 </tr>
@@ -151,7 +164,7 @@ export function ActiveOrders({ orders: propOrders, setOrders }: ActiveOrdersProp
               <tbody>
                 {filteredOrders.length === 0 ? (
                   <tr>
-                    <td colSpan={6} className="text-center py-8 text-slate-500">No orders found matching the filter.</td>
+                    <td colSpan={7} className="text-center py-8 text-slate-500">No orders found matching the filter.</td>
                   </tr>
                 ) : (
                   filteredOrders.map((order) => (
@@ -164,19 +177,35 @@ export function ActiveOrders({ orders: propOrders, setOrders }: ActiveOrdersProp
                           {getStatusLabel(order.status)}
                         </Badge>
                       </td>
+                      <td className="py-3.5 px-4">
+                        <Badge variant={getTransportStatusBadgeVariant(order.transportStatus)} size="sm">
+                          {getTransportStatusLabel(order.transportStatus)}
+                        </Badge>
+                      </td>
                       <td className="py-3.5 px-4 text-slate-700">
                         {new Date(order.deliveryETA).toLocaleDateString('en-IN', { month: 'short', day: 'numeric', year: 'numeric' })}
                       </td>
                       <td className="py-3.5 px-4 text-right">
                         <div className="flex items-center justify-end gap-2">
-                          <button
-                            onClick={() => setTrackingOrder(order)}
-                            className="p-2 hover:bg-blue-50 text-blue-600 rounded-lg transition-colors flex items-center gap-1 font-semibold text-xs border border-blue-100"
-                            title="Track Order"
-                          >
-                            <Truck className="w-3.5 h-3.5" />
-                            Track
-                          </button>
+                          {(!order.transportStatus || order.transportStatus === 'AWAITING_TRANSPORT' || order.transportStatus === 'BIDDING') ? (
+                            <Link
+                              href={`/customer/dashboard?tab=transporters&orderId=${order.orderId || order._id}`}
+                              className="px-2.5 py-1.5 bg-orange-500 hover:bg-orange-600 text-white rounded-lg transition-colors flex items-center gap-1 font-semibold text-xs border border-orange-600 shadow-sm"
+                              title="Choose Transporter"
+                            >
+                              <Truck className="w-3.5 h-3.5" />
+                              Choose Transporter
+                            </Link>
+                          ) : (
+                            <Link
+                              href={`/orders/${order.orderId || order._id}/tracking`}
+                              className="px-2.5 py-1.5 bg-blue-600 hover:bg-blue-750 text-white rounded-lg transition-colors flex items-center gap-1 font-semibold text-xs border border-blue-700 shadow-sm"
+                              title="Track Shipment"
+                            >
+                              <Navigation className="w-3.5 h-3.5" />
+                              Track Shipment
+                            </Link>
+                          )}
                           <button
                             disabled={downloadingInvoiceId === (order._id || order.id)}
                             onClick={() => handleDownloadInvoice(order._id || order.id)}
@@ -224,7 +253,15 @@ export function ActiveOrders({ orders: propOrders, setOrders }: ActiveOrdersProp
                     <p className="text-slate-500 text-xs font-semibold">Quantity</p>
                     <p className="text-slate-900 font-semibold mt-1">{order.quantity.toLocaleString()} L</p>
                   </div>
-                  <div className="col-span-2">
+                  <div>
+                    <p className="text-slate-500 text-xs font-semibold">Transport Status</p>
+                    <div className="mt-1">
+                      <Badge variant={getTransportStatusBadgeVariant(order.transportStatus)} size="sm">
+                        {getTransportStatusLabel(order.transportStatus)}
+                      </Badge>
+                    </div>
+                  </div>
+                  <div>
                     <p className="text-slate-500 text-xs font-semibold">Delivery ETA</p>
                     <p className="text-slate-900 font-semibold mt-1">
                       {new Date(order.deliveryETA).toLocaleDateString('en-IN', { month: 'short', day: 'numeric', year: 'numeric' })}
@@ -233,13 +270,23 @@ export function ActiveOrders({ orders: propOrders, setOrders }: ActiveOrdersProp
                 </div>
 
                 <div className="flex gap-2 pt-2 border-t border-slate-100">
-                  <button 
-                    onClick={() => setTrackingOrder(order)}
-                    className="flex-1 flex items-center justify-center gap-2 py-2 px-3 bg-blue-50 hover:bg-blue-100 text-blue-600 rounded-lg text-sm font-semibold transition-colors"
-                  >
-                    <Truck className="w-4 h-4" />
-                    Track
-                  </button>
+                  {(!order.transportStatus || order.transportStatus === 'AWAITING_TRANSPORT' || order.transportStatus === 'BIDDING') ? (
+                    <Link
+                      href={`/customer/dashboard?tab=transporters&orderId=${order.orderId || order._id}`}
+                      className="flex-1 flex items-center justify-center gap-2 py-2 px-3 bg-orange-500 hover:bg-orange-600 text-white rounded-lg text-sm font-semibold transition-colors shadow-sm"
+                    >
+                      <Truck className="w-4 h-4" />
+                      Choose Transporter
+                    </Link>
+                  ) : (
+                    <Link
+                      href={`/orders/${order.orderId || order._id}/tracking`}
+                      className="flex-1 flex items-center justify-center gap-2 py-2 px-3 bg-blue-600 hover:bg-blue-750 text-white rounded-lg text-sm font-semibold transition-colors shadow-sm"
+                    >
+                      <Navigation className="w-4 h-4" />
+                      Track Shipment
+                    </Link>
+                  )}
                   <button 
                     disabled={downloadingInvoiceId === (order._id || order.id)}
                     onClick={() => handleDownloadInvoice(order._id || order.id)}
@@ -260,94 +307,7 @@ export function ActiveOrders({ orders: propOrders, setOrders }: ActiveOrdersProp
           ))
         )}
       </div>
-
-      {/* Dispatch Tracking Modal Overlay */}
-      {trackingOrder && (
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl w-full max-w-lg shadow-2xl overflow-hidden animate-zoom-in">
-            {/* Modal Header */}
-            <div className="bg-slate-900 text-white p-5 flex items-center justify-between">
-              <div>
-                <p className="text-[10px] uppercase font-extrabold tracking-widest text-slate-400">Real-time GPS Tracking</p>
-                <h3 className="font-bold text-lg mt-0.5">Shipment for {trackingOrder.id}</h3>
-              </div>
-              <button 
-                onClick={() => setTrackingOrder(null)}
-                className="p-1.5 hover:bg-slate-800 rounded-lg transition-colors"
-              >
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-
-            {/* Stepper Content */}
-            <div className="p-6 space-y-6">
-              
-              {/* Product Info Banner */}
-              <div className="bg-slate-50 border border-slate-100 p-4 rounded-xl flex justify-between text-xs text-slate-700">
-                <div>
-                  <span className="text-[10px] text-slate-400 font-bold block uppercase">Product Spec</span>
-                  <span className="font-bold text-slate-900">{trackingOrder.product}</span>
-                </div>
-                <div>
-                  <span className="text-[10px] text-slate-400 font-bold block uppercase">Cargo Quantity</span>
-                  <span className="font-bold text-slate-900">{trackingOrder.quantity.toLocaleString()} Litres</span>
-                </div>
-                <div>
-                  <span className="text-[10px] text-slate-400 font-bold block uppercase">ETA Promise</span>
-                  <span className="font-bold text-slate-900">{new Date(trackingOrder.deliveryETA).toLocaleDateString('en-IN', {month: 'short', day: 'numeric'})}</span>
-                </div>
-              </div>
-
-              {/* Stepper Timeline */}
-              <div className="space-y-6 relative before:absolute before:left-5.5 before:top-2 before:bottom-2 before:w-0.5 before:bg-slate-100">
-                {getTrackingSteps(trackingOrder.status).map((step, idx) => (
-                  <div key={step.key} className="flex items-start gap-4 relative">
-                    {/* Step circle indicator */}
-                    <div className={`w-11 h-11 rounded-full flex items-center justify-center font-bold text-xs border-2 z-10 transition-all ${
-                      step.done
-                        ? 'bg-blue-600 border-blue-600 text-white shadow-sm'
-                        : 'bg-white border-slate-200 text-slate-400'
-                    }`}>
-                      {step.done ? <Check className="w-4 h-4 stroke-[3]" /> : (idx + 1)}
-                    </div>
-                    
-                    <div className="flex-1 pt-1.5">
-                      <p className={`font-bold text-sm ${step.done ? 'text-slate-900' : 'text-slate-400'}`}>{step.label}</p>
-                      <p className="text-xs text-slate-500 mt-0.5">{step.desc}</p>
-                    </div>
-                  </div>
-                ))}
-              </div>
-
-              {/* Simulated Map / GPS Terminal */}
-              <div className="bg-slate-950 text-emerald-400 font-mono p-4 rounded-xl text-xs space-y-1 shadow-inner border border-slate-800">
-                <p className="text-[10px] text-slate-500">// TELEMETRY FEED (SIMULATED GPS)</p>
-                <div className="flex justify-between mt-1 text-[11px]">
-                  <span>LAT: 18.9750&bull; N</span>
-                  <span>LNG: 72.8258&bull; E</span>
-                  <span>HEADING: N-NE</span>
-                </div>
-                <div className="h-1.5 w-full bg-slate-800 rounded-full overflow-hidden mt-2">
-                  <div className="h-full bg-emerald-500 rounded-full animate-pulse" style={{
-                    width: trackingOrder.status === 'processing' ? '33%' : trackingOrder.status === 'in_transit' ? '66%' : '100%'
-                  }} />
-                </div>
-              </div>
-
-            </div>
-
-            {/* Modal Footer */}
-            <div className="bg-slate-50 p-4 border-t border-slate-100 flex justify-end">
-              <button 
-                onClick={() => setTrackingOrder(null)}
-                className="bg-slate-900 hover:bg-slate-800 text-white font-bold py-2 px-5 rounded-lg text-xs transition-colors"
-              >
-                Close Terminal
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 }
+

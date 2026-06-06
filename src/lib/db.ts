@@ -44,18 +44,7 @@ export async function dbConnect() {
   const _models = { User, Company, Application, Document, ActivityLog };
 
   if (cached.conn) {
-    try {
-      // Verify connection is still alive
-      const db = cached.conn?.connection?.db;
-      if (db) {
-        await db.admin().ping();
-      }
-      return cached.conn;
-    } catch (e) {
-      // Connection is stale, reset it
-      cached.conn = null;
-      cached.promise = null;
-    }
+    return cached.conn;
   }
   
   // Attempt to connect with retries

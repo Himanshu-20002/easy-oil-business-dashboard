@@ -76,7 +76,7 @@ export default function Home() {
       <Header />
 
       {/* Hero Section */}
-      <section className="relative pt-32 pb-24 md:pt-40 md:pb-36  overflow-hidden">
+      <section className="relative pt-32  md:pt-40 md:pb-20  overflow-hidden">
         {/* Abstract futuristic glowing backgrounds */}
         <div className="absolute top-[-20%] left-[-15%] w-[80%] md:w-[60%] h-[60%] rounded-full bg-iocl-blue/20 blur-[130px] pointer-events-none"></div>
         <div className="absolute bottom-[-10%] right-[-10%] w-[80%] md:w-[65%] h-[65%] rounded-full bg-iocl-orange/15 blur-[150px] pointer-events-none"></div>
@@ -208,11 +208,15 @@ export default function Home() {
                     </div>
                   </div>
                 </div>
+
+              
               </div>
-            </div>
+           
+        </div>
+         </div>
+             
 
           </div>
-        </div>
       </section>
 
       {/* Onboarding Steps Visual Grid */}
